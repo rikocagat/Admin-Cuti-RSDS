@@ -37,7 +37,17 @@ th,td{
 tbody tr:hover{background:#f8fafc}
 a{color:#2563eb;font-weight:600;text-decoration:none}
 
-select{padding:6px 10px;border-radius:8px;font-weight:700}
+select,input{
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid #cbd5e1;
+  font-weight:600;
+}
+
+input.nomor{
+  width:160px;
+}
+
 button{
   padding:6px 12px;
   border-radius:8px;
@@ -73,6 +83,7 @@ button{
         <th>Tgl Mulai</th>
         <th>Lama</th>
         <th>Tgl Pengajuan</th>
+        <th>Nomor Surat</th>
         <th>File 1</th>
         <th>File 2</th>
         <th>Tanda Tangan</th>
@@ -135,9 +146,19 @@ document.addEventListener("DOMContentLoaded", async ()=>{
           <td>${fmt(d.tgl_mulai)}</td>
           <td>${d.lama_cuti ?? "-"} hari</td>
           <td>${fmt(d.created_at)}</td>
+
+          <!-- NOMOR SURAT (ADMIN INPUT) -->
+          <td>
+            <input class="nomor"
+              value="${d.nomor_surat ?? ""}"
+              placeholder="Ketik nomor…"
+              onblur="updateNomor('${d.id}',this.value)">
+          </td>
+
           <td>${d.file_1_url ? `<a href="${d.file_1_url}" target="_blank">Lihat</a>`:"-"}</td>
           <td>${d.file_2_url ? `<a href="${d.file_2_url}" target="_blank">Lihat</a>`:"-"}</td>
           <td>${d.signature_url ? `<a href="${d.signature_url}" target="_blank">Lihat</a>`:"-"}</td>
+
           <td>
             <select class="status-${d.status}"
               onchange="updateStatus('${d.id}',this.value,this)">
@@ -146,6 +167,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
               <option value="DITOLAK" ${d.status==="DITOLAK"?"selected":""}>DITOLAK</option>
             </select>
           </td>
+
           <td>
             <button class="copy" onclick='copyRow(${JSON.stringify({
               nama:d.nama,
@@ -156,6 +178,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
               tgl_mulai:fmt(d.tgl_mulai),
               lama:d.lama_cuti,
               tgl_pengajuan:fmt(d.created_at),
+              nomor_surat:d.nomor_surat,
               file1:d.file_1_url,
               file2:d.file_2_url,
               ttd:d.signature_url
@@ -171,34 +194,26 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     });
   }
 
-  // 🔍 SEARCH AUTO COMPLETE
+  // SEARCH
   search.addEventListener("input",()=>{
     const v = search.value.toLowerCase();
     render(allData.filter(d=>(d.nama||"").toLowerCase().includes(v)));
   });
 
-  // 📋 COPY TERMASUK URL
-  window.copyRow = async (o)=>{
-    const text = `
-Nama           : ${o.nama}
-NIP            : ${o.nip}
-No HP          : ${o.no_hp}
-Jenis Cuti     : ${o.jenis_cuti}
-Alamat         : ${o.alamat}
-Tanggal Mulai  : ${o.tgl_mulai}
-Lama Cuti      : ${o.lama} hari
-Tanggal Ajukan : ${o.tgl_pengajuan}
+  // UPDATE NOMOR SURAT (BARU)
+  window.updateNomor = async (id,val)=>{
+    const { error } = await supabase
+      .from("pengajuan_cuti")
+      .update({ nomor_surat: val || null })
+      .eq("id",id);
 
-File 1         : ${o.file1 ?? "-"}
-File 2         : ${o.file2 ?? "-"}
-Tanda Tangan   : ${o.ttd ?? "-"}
-`.trim();
-
-    await navigator.clipboard.writeText(text);
-    alert("Data + URL berhasil di-copy");
+    if(error){
+      alert("Gagal simpan nomor surat");
+      console.error(error);
+    }
   };
 
-  // UPDATE STATUS
+  // UPDATE STATUS (TETAP)
   window.updateStatus = async (id,val,el)=>{
     const { error } = await supabase
       .from("pengajuan_cuti")
@@ -213,7 +228,7 @@ Tanda Tangan   : ${o.ttd ?? "-"}
     el.className="status-"+val;
   };
 
-  // DELETE
+  // DELETE (TETAP)
   window.hapus = async (id,f1,f2,ttd)=>{
     if(!confirm("Hapus DATA & FILE permanen?")) return;
 
