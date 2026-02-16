@@ -35,7 +35,7 @@ th,td{
   white-space:nowrap;
 }
 tbody tr:hover{background:#f8fafc}
-a{color:#2563eb;font-weight:600;text-decoration:none}
+a{color:#2563eb;font-weight:700;text-decoration:none}
 
 select,input{
   padding:6px 10px;
@@ -43,20 +43,18 @@ select,input{
   border:1px solid #cbd5e1;
   font-weight:600;
 }
-
 input.nomor{width:160px}
 
 button{
   padding:6px 10px;
   border-radius:8px;
   border:none;
-  font-weight:700;
+  font-weight:800;
   cursor:pointer;
 }
-.copy{background:#0ea5e9;color:#fff}
-.hapus{background:#dc2626;color:#fff}
 .gen{background:#16a34a;color:#fff}
-.gen:disabled{background:#94a3b8;cursor:not-allowed}
+.view{background:#2563eb;color:#fff}
+.hapus{background:#dc2626;color:#fff}
 
 .status-DIAJUKAN{background:#fde68a}
 .status-DISETUJUI{background:#bbf7d0}
@@ -83,9 +81,6 @@ button{
         <th>Lama</th>
         <th>Tgl Pengajuan</th>
         <th>Nomor Surat</th>
-        <th>File 1</th>
-        <th>File 2</th>
-        <th>Tanda Tangan</th>
         <th>Status</th>
         <th>Aksi</th>
       </tr>
@@ -102,21 +97,15 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     "sb_publishable_EVSVWnsUriOPA_O3RnGTpg_Zmd4pyAL"
   );
 
-  const GAS_URL   = "PASTE_URL_WEB_APP_GAS_ANDA";
+  // 🔴 WAJIB DIISI – dari hasil deploy GAS Anda
+  const GAS_URL = "PASTE_URL_WEB_APP_GAS_ANDA_DI_SINI";
   const GAS_TOKEN = "SECRET_TOKEN_RSDS";
 
-  const BUCKET = "cuti";
   const tbody = document.getElementById("tbody");
   const search = document.getElementById("search");
 
   let allData = [];
-
   const fmt = v => v ? new Date(v).toLocaleDateString("id-ID") : "-";
-
-  function pathFromUrl(url){
-    if(!url) return null;
-    return url.split("/object/public/")[1];
-  }
 
   async function load(){
     const { data, error } = await supabase
@@ -154,13 +143,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
           <td>
             <input class="nomor"
               value="${d.nomor_surat ?? ""}"
-              placeholder="Ketik nomor…"
               onblur="updateNomor('${d.id}',this.value)">
           </td>
-
-          <td>${d.file_1_url ? `<a href="${d.file_1_url}" target="_blank">Lihat</a>`:"-"}</td>
-          <td>${d.file_2_url ? `<a href="${d.file_2_url}" target="_blank">Lihat</a>`:"-"}</td>
-          <td>${d.signature_url ? `<a href="${d.signature_url}" target="_blank">Lihat</a>`:"-"}</td>
 
           <td>
             <select class="status-${d.status}"
@@ -172,97 +156,59 @@ document.addEventListener("DOMContentLoaded", async ()=>{
           </td>
 
           <td>
-            <button class="gen" ${sudahAda?"disabled":""}
-              onclick='generateDokumen(${JSON.stringify(d)})'>
-              ${sudahAda?"SUDAH ADA":"BUAT DOKUMEN"}
-            </button>
-
-            ${sudahAda ? `<a href="${d.doc_url}" target="_blank">📄</a>` : ""}
-
-            <button class="copy" onclick='copyRow(${JSON.stringify({
-              nama:d.nama,
-              nip:d.nip,
-              no_hp:d.no_hp,
-              jenis_cuti:d.jenis_cuti,
-              alamat:d.alamat,
-              tgl_mulai:fmt(d.tgl_mulai),
-              lama:d.lama_cuti,
-              tgl_pengajuan:fmt(d.created_at),
-              nomor_surat:d.nomor_surat,
-              file1:d.file_1_url,
-              file2:d.file_2_url,
-              ttd:d.signature_url
-            })})'>COPY</button>
-
-            <button class="hapus"
-              onclick="hapus('${d.id}','${d.file_1_url}','${d.file_2_url}','${d.signature_url}')">
-              HAPUS
-            </button>
+            ${sudahAda
+              ? `<button class="view" onclick="window.open('${d.doc_url}','_blank')">LIHAT DOKUMEN</button>`
+              : `<button class="gen" onclick='generateDokumen(${JSON.stringify(d)})'>BUAT DOKUMEN</button>`
+            }
+            <button class="hapus" onclick="hapus('${d.id}')">HAPUS</button>
           </td>
         </tr>
       `);
     });
   }
 
-  // SEARCH
   search.addEventListener("input",()=>{
     const v = search.value.toLowerCase();
     render(allData.filter(d=>(d.nama||"").toLowerCase().includes(v)));
   });
 
-  // UPDATE NOMOR SURAT
   window.updateNomor = async (id,val)=>{
     await supabase.from("pengajuan_cuti")
       .update({ nomor_surat: val || null })
       .eq("id",id);
   };
 
-  // UPDATE STATUS
   window.updateStatus = async (id,val,el)=>{
-    const { error } = await supabase
-      .from("pengajuan_cuti")
+    await supabase.from("pengajuan_cuti")
       .update({status:val})
       .eq("id",id);
-
-    if(error){
-      alert("Update gagal");
-      console.error(error);
-      return;
-    }
     el.className="status-"+val;
   };
 
-  // DELETE
-  window.hapus = async (id,f1,f2,ttd)=>{
-    if(!confirm("Hapus DATA & FILE permanen?")) return;
-
-    const files=[f1,f2,ttd].map(pathFromUrl).filter(Boolean);
-    if(files.length){
-      await supabase.storage.from(BUCKET).remove(files);
-    }
-
+  window.hapus = async (id)=>{
+    if(!confirm("Hapus data permanen?")) return;
     await supabase.from("pengajuan_cuti").delete().eq("id",id);
     load();
   };
 
-  // === GENERATE DOKUMEN (BARU) ===
+  // === GENERATE DOKUMEN (LOGIKA BARU TANPA MENGUBAH YANG LAMA) ===
   window.generateDokumen = async (row)=>{
-    const res = await fetch(GAS_URL, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        token: GAS_TOKEN,
-        nama: row.nama,
-        nip: row.nip,
-        jabatan: row.jabatan,
-        jenis_cuti: row.jenis_cuti,
-        awal_cuti: row.tgl_mulai,
-        akhir_cuti: row.tgl_akhir,
-        lama_cuti: row.lama_cuti,
-        alamat: row.alamat,
-        sisa_cuti: row.sisa_cuti,
-        nomor_surat: row.nomor_surat,
-        ttd_url: row.signature_url
+    const res = await fetch(GAS_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        token:GAS_TOKEN,
+        nama:row.nama,
+        nip:row.nip,
+        jabatan:row.jabatan,
+        jenis_cuti:row.jenis_cuti,
+        awal_cuti:row.tgl_mulai,
+        akhir_cuti:row.tgl_akhir,
+        lama_cuti:row.lama_cuti,
+        alamat:row.alamat,
+        sisa_cuti:row.sisa_cuti,
+        nomor_surat:row.nomor_surat,
+        ttd_url:row.signature_url
       })
     });
 
@@ -272,10 +218,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       return;
     }
 
-    await supabase
-      .from("pengajuan_cuti")
+    await supabase.from("pengajuan_cuti")
       .update({ doc_url: json.doc_url })
-      .eq("id", row.id);
+      .eq("id",row.id);
 
     load();
   };
