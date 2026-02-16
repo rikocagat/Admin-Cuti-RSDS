@@ -44,12 +44,10 @@ select,input{
   font-weight:600;
 }
 
-input.nomor{
-  width:160px;
-}
+input.nomor{width:160px}
 
 button{
-  padding:6px 12px;
+  padding:6px 10px;
   border-radius:8px;
   border:none;
   font-weight:700;
@@ -57,7 +55,8 @@ button{
 }
 .copy{background:#0ea5e9;color:#fff}
 .hapus{background:#dc2626;color:#fff}
-.copy:hover,.hapus:hover{opacity:.85}
+.gen{background:#16a34a;color:#fff}
+.gen:disabled{background:#94a3b8;cursor:not-allowed}
 
 .status-DIAJUKAN{background:#fde68a}
 .status-DISETUJUI{background:#bbf7d0}
@@ -103,7 +102,10 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     "sb_publishable_EVSVWnsUriOPA_O3RnGTpg_Zmd4pyAL"
   );
 
-  const BUCKET = "cuti"; // sesuaikan
+  const GAS_URL   = "PASTE_URL_WEB_APP_GAS_ANDA";
+  const GAS_TOKEN = "SECRET_TOKEN_RSDS";
+
+  const BUCKET = "cuti";
   const tbody = document.getElementById("tbody");
   const search = document.getElementById("search");
 
@@ -135,6 +137,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   function render(data){
     tbody.innerHTML="";
     data.forEach((d,i)=>{
+      const sudahAda = !!d.doc_url;
+
       tbody.insertAdjacentHTML("beforeend",`
         <tr>
           <td>${i+1}</td>
@@ -147,7 +151,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
           <td>${d.lama_cuti ?? "-"} hari</td>
           <td>${fmt(d.created_at)}</td>
 
-          <!-- NOMOR SURAT (ADMIN INPUT) -->
           <td>
             <input class="nomor"
               value="${d.nomor_surat ?? ""}"
@@ -169,6 +172,13 @@ document.addEventListener("DOMContentLoaded", async ()=>{
           </td>
 
           <td>
+            <button class="gen" ${sudahAda?"disabled":""}
+              onclick='generateDokumen(${JSON.stringify(d)})'>
+              ${sudahAda?"SUDAH ADA":"BUAT DOKUMEN"}
+            </button>
+
+            ${sudahAda ? `<a href="${d.doc_url}" target="_blank">📄</a>` : ""}
+
             <button class="copy" onclick='copyRow(${JSON.stringify({
               nama:d.nama,
               nip:d.nip,
@@ -200,20 +210,14 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     render(allData.filter(d=>(d.nama||"").toLowerCase().includes(v)));
   });
 
-  // UPDATE NOMOR SURAT (BARU)
+  // UPDATE NOMOR SURAT
   window.updateNomor = async (id,val)=>{
-    const { error } = await supabase
-      .from("pengajuan_cuti")
+    await supabase.from("pengajuan_cuti")
       .update({ nomor_surat: val || null })
       .eq("id",id);
-
-    if(error){
-      alert("Gagal simpan nomor surat");
-      console.error(error);
-    }
   };
 
-  // UPDATE STATUS (TETAP)
+  // UPDATE STATUS
   window.updateStatus = async (id,val,el)=>{
     const { error } = await supabase
       .from("pengajuan_cuti")
@@ -228,7 +232,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     el.className="status-"+val;
   };
 
-  // DELETE (TETAP)
+  // DELETE
   window.hapus = async (id,f1,f2,ttd)=>{
     if(!confirm("Hapus DATA & FILE permanen?")) return;
 
@@ -238,6 +242,41 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     }
 
     await supabase.from("pengajuan_cuti").delete().eq("id",id);
+    load();
+  };
+
+  // === GENERATE DOKUMEN (BARU) ===
+  window.generateDokumen = async (row)=>{
+    const res = await fetch(GAS_URL, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        token: GAS_TOKEN,
+        nama: row.nama,
+        nip: row.nip,
+        jabatan: row.jabatan,
+        jenis_cuti: row.jenis_cuti,
+        awal_cuti: row.tgl_mulai,
+        akhir_cuti: row.tgl_akhir,
+        lama_cuti: row.lama_cuti,
+        alamat: row.alamat,
+        sisa_cuti: row.sisa_cuti,
+        nomor_surat: row.nomor_surat,
+        ttd_url: row.signature_url
+      })
+    });
+
+    const json = await res.json();
+    if(!json.ok){
+      alert(json.error || "Gagal generate dokumen");
+      return;
+    }
+
+    await supabase
+      .from("pengajuan_cuti")
+      .update({ doc_url: json.doc_url })
+      .eq("id", row.id);
+
     load();
   };
 
