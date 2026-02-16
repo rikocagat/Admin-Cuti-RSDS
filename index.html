@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Admin Cuti</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,Segoe UI;
+  background:#f8fafc;
+}
+.container{
+  max-width:1200px;
+  margin:auto;
+  padding:20px;
+}
+h2{
+  text-align:center;
+  color:#0f172a;
+  margin-bottom:16px;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+  border-radius:12px;
+  overflow:hidden;
+}
+thead{
+  background:#1e40af;
+  color:#fff;
+}
+th,td{
+  padding:10px 12px;
+  font-size:14px;
+  border-bottom:1px solid #e5e7eb;
+  text-align:left;
+}
+th{
+  white-space:nowrap;
+}
+tbody tr:hover{
+  background:#f1f5f9;
+}
+select{
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid #cbd5f5;
+  font-weight:600;
+}
+.status-DIAJUKAN{color:#92400e;background:#fde68a}
+.status-DISETUJUI{color:#065f46;background:#bbf7d0}
+.status-DITOLAK{color:#991b1b;background:#fecaca}
+.url a{
+  color:#2563eb;
+  text-decoration:none;
+  font-weight:600;
+}
+.footer{
+  text-align:center;
+  margin-top:12px;
+  font-size:12px;
+  color:#64748b;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h2>🛠️ Admin Cuti</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>Nama</th>
+        <th>NIP</th>
+        <th>Jenis Cuti</th>
+        <th>Tgl Pengajuan</th>
+        <th>Tgl Mulai</th>
+        <th>Lama</th>
+        <th>URL Dokumen</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <div class="footer">Menampilkan seluruh data • Terbaru di atas</div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+
+  const supabase = window.supabase.createClient(
+    "https://ufiqibxdgwlysqhinqbz.supabase.co",
+    "sb_publishable_EVSVWnsUriOPA_O3RnGTpg_Zmd4pyAL"
+  );
+
+  const tbody = document.getElementById("tbody");
+
+  const fmt = v => v ? new Date(v).toLocaleDateString("id-ID") : "-";
+
+  async function load(){
+    const { data, error } = await supabase
+      .from("pengajuan_cuti")
+      .select("*")
+      .order("created_at",{ascending:false});
+
+    if(error){
+      alert("Gagal memuat data");
+      console.error(error);
+      return;
+    }
+
+    tbody.innerHTML = "";
+    data.forEach((d,i)=>{
+      tbody.insertAdjacentHTML("beforeend",`
+        <tr>
+          <td>${i+1}</td>
+          <td>${d.nama ?? "-"}</td>
+          <td>${d.nip ?? "-"}</td>
+          <td>${d.jenis_cuti ?? "-"}</td>
+          <td>${fmt(d.created_at)}</td>
+          <td>${fmt(d.tgl_mulai)}</td>
+          <td>${d.lama_cuti ?? "-"} hari</td>
+          <td class="url">
+            ${d.url_dokumen ? `<a href="${d.url_dokumen}" target="_blank">Lihat</a>` : "-"}
+          </td>
+          <td>
+            <select 
+              class="status-${d.status}" 
+              onchange="updateStatus('${d.id}',this.value,this)">
+              <option value="DIAJUKAN" ${d.status==="DIAJUKAN"?"selected":""}>DIAJUKAN</option>
+              <option value="DISETUJUI" ${d.status==="DISETUJUI"?"selected":""}>DISETUJUI</option>
+              <option value="DITOLAK" ${d.status==="DITOLAK"?"selected":""}>DITOLAK</option>
+            </select>
+          </td>
+        </tr>
+      `);
+    });
+  }
+
+  window.updateStatus = async (id,value,el)=>{
+    const { error } = await supabase
+      .from("pengajuan_cuti")
+      .update({ status:value })
+      .eq("id",id);
+
+    if(error){
+      alert("Gagal update status");
+      console.error(error);
+      return;
+    }
+
+    el.className = "status-" + value;
+  };
+
+  load();
+});
+</script>
+</body>
+</html>
