@@ -12,19 +12,35 @@ body{margin:0;font-family:system-ui,Segoe UI;background:#f1f5f9}
 .container{max-width:1800px;margin:auto;padding:20px}
 h2{text-align:center;margin-bottom:14px}
 .search{width:420px;padding:12px 16px;font-size:15px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:14px}
+
 table{width:100%;border-collapse:collapse;background:#fff;box-shadow:0 10px 25px rgba(0,0,0,.08)}
 thead{background:#1e40af;color:#fff}
 th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;white-space:nowrap}
 tbody tr:hover{background:#f8fafc}
+
 a{color:#2563eb;font-weight:600;text-decoration:none}
-select,input{padding:6px 10px;border-radius:8px;border:1px solid #cbd5e1;font-weight:600}
+
+select,input{
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid #cbd5e1;
+  font-weight:600;
+}
 input.nomor{width:140px}
 input.small{width:90px}
-button{padding:6px 12px;border-radius:8px;border:none;font-weight:700;cursor:pointer}
+
+button{
+  padding:6px 12px;
+  border-radius:8px;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+}
 .gen{background:#16a34a;color:#fff}
 .view{background:#2563eb;color:#fff}
 .hapus{background:#dc2626;color:#fff}
 .loading{background:#94a3b8;color:#fff;cursor:not-allowed}
+
 .status-DIAJUKAN{background:#fde68a}
 .status-DISETUJUI{background:#bbf7d0}
 .status-DITOLAK{background:#fecaca}
@@ -34,6 +50,7 @@ button{padding:6px 12px;border-radius:8px;border:none;font-weight:700;cursor:poi
 <body>
 <div class="container">
   <h2>🛠️ ADMIN CUTI</h2>
+
   <input id="search" class="search" placeholder="Cari nama pegawai…">
 
   <table>
@@ -66,12 +83,14 @@ button{padding:6px 12px;border-radius:8px;border:none;font-weight:700;cursor:poi
 <script>
 document.addEventListener("DOMContentLoaded", async ()=>{
 
+  /* ================= SUPABASE ================= */
   const supabase = window.supabase.createClient(
     "https://ufiqibxdgwlysqhinqbz.supabase.co",
     "sb_publishable_EVSVWnsUriOPA_O3RnGTpg_Zmd4pyAL"
   );
 
-  const GAS_URL   = "https://script.google.com/macros/s/AKfycbyTUByS4UrPYAJiBRU88iCImkK_Ot6VCfRlywzD3E4Hv_sUROGyZXdzipgD2s5U8Nfxbg/exec";
+  /* ================= GAS ================= */
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbyTUByS4UrPYAJiBRU88iCImkK_Ot6VCfRlywzD3E4Hv_sUROGyZXdzipgD2s5U8Nfxbg/exec";
   const GAS_TOKEN = "SECRET_TOKEN_RSDS";
 
   const BUCKET = "cuti";
@@ -81,6 +100,13 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 
   const fmt = v => v ? new Date(v).toLocaleDateString("id-ID") : "-";
 
+  function pathFromUrl(url){
+    if(!url) return null;
+    const i = url.indexOf("/object/public/");
+    return i === -1 ? null : url.slice(i + 15);
+  }
+
+  /* ================= LOAD ================= */
   async function load(){
     const { data, error } = await supabase
       .from("pengajuan_cuti")
@@ -96,6 +122,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     render(allData);
   }
 
+  /* ================= RENDER ================= */
   function render(data){
     tbody.innerHTML="";
     data.forEach((d,i)=>{
@@ -153,22 +180,42 @@ document.addEventListener("DOMContentLoaded", async ()=>{
               : `<button class="gen" id="btn-${d.id}"
                   onclick='generateDokumen(${JSON.stringify(d)})'>BUAT</button>`
             }
+            <button class="hapus"
+              onclick="hapusData('${d.id}','${d.file_1_url}','${d.file_2_url}','${d.signature_url}')">
+              HAPUS
+            </button>
           </td>
         </tr>
       `);
     });
   }
 
+  /* ================= SEARCH ================= */
   search.addEventListener("input",()=>{
     const v = search.value.toLowerCase();
     render(allData.filter(d=>(d.nama||"").toLowerCase().includes(v)));
   });
 
-  window.updateNomor = (id,val)=>supabase.from("pengajuan_cuti").update({nomor_surat:val}).eq("id",id);
+  /* ================= UPDATE FIELD ================= */
+  window.updateNomor = (id,val)=>supabase.from("pengajuan_cuti").update({nomor_surat:val||null}).eq("id",id);
   window.updateStatus = (id,val,el)=>{supabase.from("pengajuan_cuti").update({status:val}).eq("id",id);el.className="status-"+val};
   window.updateCutiBersama = (id,val)=>supabase.from("pengajuan_cuti").update({cuti_bersama:+val||0}).eq("id",id);
-  window.updateTglSelesai = (id,val)=>supabase.from("pengajuan_cuti").update({tgl_selesai:val}).eq("id",id);
+  window.updateTglSelesai = (id,val)=>supabase.from("pengajuan_cuti").update({tgl_selesai:val||null}).eq("id",id);
 
+  /* ================= DELETE ================= */
+  window.hapusData = async (id,f1,f2,ttd)=>{
+    if(!confirm("Hapus DATA & FILE permanen?")) return;
+
+    const files=[f1,f2,ttd].map(pathFromUrl).filter(Boolean);
+    if(files.length){
+      await supabase.storage.from(BUCKET).remove(files);
+    }
+
+    await supabase.from("pengajuan_cuti").delete().eq("id",id);
+    load();
+  };
+
+  /* ================= GENERATE DOKUMEN ================= */
   window.generateDokumen = async (row)=>{
     const btn = document.getElementById("btn-"+row.id);
     btn.disabled = true;
@@ -199,10 +246,13 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       if(!j.ok) throw j.error || "Gagal generate";
 
       await supabase.from("pengajuan_cuti")
-        .update({ doc_url:j.doc_url, tgl_selesai:j.tgl_selesai })
+        .update({
+          doc_url: j.doc_url,
+          tgl_selesai: j.tgl_selesai
+        })
         .eq("id",row.id);
 
-      await load();
+      load();
 
     }catch(e){
       alert("GAGAL MEMBUAT DOKUMEN:\n"+e);
