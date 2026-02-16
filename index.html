@@ -4,229 +4,132 @@
 <meta charset="UTF-8">
 <title>Admin Cuti</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <style>
-body{margin:0;font-family:system-ui,Segoe UI;background:#f1f5f9}
+body{font-family:system-ui;background:#f1f5f9;margin:0}
 .container{max-width:1800px;margin:auto;padding:20px}
-h2{text-align:center;margin-bottom:14px}
-
-.search{
-  width:420px;
-  padding:12px 16px;
-  font-size:15px;
-  border-radius:10px;
-  border:1px solid #cbd5e1;
-  margin-bottom:14px;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  background:#fff;
-  box-shadow:0 10px 25px rgba(0,0,0,.08);
-}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:10px;border-bottom:1px solid #ddd;font-size:14px}
 thead{background:#1e40af;color:#fff}
-th,td{
-  padding:10px 12px;
-  border-bottom:1px solid #e5e7eb;
-  font-size:14px;
-  white-space:nowrap;
-}
-tbody tr:hover{background:#f8fafc}
-a{color:#2563eb;font-weight:700;text-decoration:none}
-
-select,input{
-  padding:6px 10px;
-  border-radius:8px;
-  border:1px solid #cbd5e1;
-  font-weight:600;
-}
-input.nomor{width:160px}
-
-button{
-  padding:6px 10px;
-  border-radius:8px;
-  border:none;
-  font-weight:800;
-  cursor:pointer;
-}
+input,select,button{padding:6px;border-radius:6px}
 .gen{background:#16a34a;color:#fff}
 .view{background:#2563eb;color:#fff}
 .hapus{background:#dc2626;color:#fff}
-
-.status-DIAJUKAN{background:#fde68a}
-.status-DISETUJUI{background:#bbf7d0}
-.status-DITOLAK{background:#fecaca}
 </style>
 </head>
 
 <body>
 <div class="container">
-  <h2>🛠️ ADMIN CUTI</h2>
-
-  <input id="search" class="search" placeholder="Cari nama pegawai…">
-
-  <table>
-    <thead>
-      <tr>
-        <th>No</th>
-        <th>Nama</th>
-        <th>NIP</th>
-        <th>No HP</th>
-        <th>Jenis</th>
-        <th>Alamat</th>
-        <th>Tgl Mulai</th>
-        <th>Lama</th>
-        <th>Tgl Pengajuan</th>
-        <th>Nomor Surat</th>
-        <th>Status</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
+<h2>ADMIN CUTI</h2>
+<table>
+<thead>
+<tr>
+<th>No</th><th>Nama</th><th>Mulai</th><th>Lama</th>
+<th>Cuti Bersama</th><th>Tgl Selesai</th>
+<th>Nomor Surat</th><th>Status</th><th>Aksi</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", async ()=>{
+const supabase = window.supabase.createClient(
+  "https://ufiqibxdgwlysqhinqbz.supabase.co",
+  "sb_publishable_EVSVWnsUriOPA_O3RnGTpg_Zmd4pyAL"
+);
 
-  const supabase = window.supabase.createClient(
-    "https://ufiqibxdgwlysqhinqbz.supabase.co",
-    "sb_publishable_EVSVWnsUriOPA_O3RnGTpg_Zmd4pyAL"
-  );
+const GAS_URL = "PASTE_URL_WEB_APP_GAS_ANDA";
+const GAS_TOKEN = "SECRET_TOKEN_RSDS";
 
-  // 🔴 WAJIB DIISI – dari hasil deploy GAS Anda
-  const GAS_URL = "PASTE_URL_WEB_APP_GAS_ANDA_DI_SINI";
-  const GAS_TOKEN = "SECRET_TOKEN_RSDS";
+const tbody = document.getElementById("tbody");
+const fmt = d=>d?new Date(d).toLocaleDateString("id-ID"):"";
 
-  const tbody = document.getElementById("tbody");
-  const search = document.getElementById("search");
+async function load(){
+  const {data} = await supabase.from("pengajuan_cuti")
+    .select("*").order("created_at",{ascending:false});
+  tbody.innerHTML="";
+  data.forEach((d,i)=>{
+    tbody.innerHTML+=`
+<tr>
+<td>${i+1}</td>
+<td>${d.nama}</td>
+<td>${fmt(d.tgl_mulai)}</td>
+<td>${d.lama_cuti}</td>
 
-  let allData = [];
-  const fmt = v => v ? new Date(v).toLocaleDateString("id-ID") : "-";
+<td><input type="number" value="${d.cuti_bersama||0}"
+ onblur="updateCuti('${d.id}',this.value)"></td>
 
-  async function load(){
-    const { data, error } = await supabase
-      .from("pengajuan_cuti")
-      .select("*")
-      .order("created_at",{ascending:false});
+<td><input type="date" value="${d.tgl_selesai||""}"
+ onblur="updateSelesai('${d.id}',this.value)"></td>
 
-    if(error){
-      alert("Gagal load data");
-      console.error(error);
-      return;
-    }
+<td><input value="${d.nomor_surat||""}"
+ onblur="updateNomor('${d.id}',this.value)"></td>
 
-    allData = data || [];
-    render(allData);
-  }
+<td>
+<select onchange="updateStatus('${d.id}',this.value)">
+<option ${d.status=="DIAJUKAN"?"selected":""}>DIAJUKAN</option>
+<option ${d.status=="DISETUJUI"?"selected":""}>DISETUJUI</option>
+<option ${d.status=="DITOLAK"?"selected":""}>DITOLAK</option>
+</select>
+</td>
 
-  function render(data){
-    tbody.innerHTML="";
-    data.forEach((d,i)=>{
-      const sudahAda = !!d.doc_url;
-
-      tbody.insertAdjacentHTML("beforeend",`
-        <tr>
-          <td>${i+1}</td>
-          <td>${d.nama ?? "-"}</td>
-          <td>${d.nip ?? "-"}</td>
-          <td>${d.no_hp ?? "-"}</td>
-          <td>${d.jenis_cuti ?? "-"}</td>
-          <td>${d.alamat ?? "-"}</td>
-          <td>${fmt(d.tgl_mulai)}</td>
-          <td>${d.lama_cuti ?? "-"} hari</td>
-          <td>${fmt(d.created_at)}</td>
-
-          <td>
-            <input class="nomor"
-              value="${d.nomor_surat ?? ""}"
-              onblur="updateNomor('${d.id}',this.value)">
-          </td>
-
-          <td>
-            <select class="status-${d.status}"
-              onchange="updateStatus('${d.id}',this.value,this)">
-              <option value="DIAJUKAN" ${d.status==="DIAJUKAN"?"selected":""}>DIAJUKAN</option>
-              <option value="DISETUJUI" ${d.status==="DISETUJUI"?"selected":""}>DISETUJUI</option>
-              <option value="DITOLAK" ${d.status==="DITOLAK"?"selected":""}>DITOLAK</option>
-            </select>
-          </td>
-
-          <td>
-            ${sudahAda
-              ? `<button class="view" onclick="window.open('${d.doc_url}','_blank')">LIHAT DOKUMEN</button>`
-              : `<button class="gen" onclick='generateDokumen(${JSON.stringify(d)})'>BUAT DOKUMEN</button>`
-            }
-            <button class="hapus" onclick="hapus('${d.id}')">HAPUS</button>
-          </td>
-        </tr>
-      `);
-    });
-  }
-
-  search.addEventListener("input",()=>{
-    const v = search.value.toLowerCase();
-    render(allData.filter(d=>(d.nama||"").toLowerCase().includes(v)));
+<td>
+${d.doc_url
+? `<button class="view" onclick="window.open('${d.doc_url}')">LIHAT</button>`
+: `<button class="gen" onclick='buat(${JSON.stringify(d)})'>BUAT</button>`}
+<button class="hapus" onclick="hapus('${d.id}')">HAPUS</button>
+</td>
+</tr>`;
   });
+}
 
-  window.updateNomor = async (id,val)=>{
-    await supabase.from("pengajuan_cuti")
-      .update({ nomor_surat: val || null })
-      .eq("id",id);
-  };
+window.updateCuti=(id,v)=>supabase.from("pengajuan_cuti")
+.update({cuti_bersama:parseInt(v||0)}).eq("id",id);
 
-  window.updateStatus = async (id,val,el)=>{
-    await supabase.from("pengajuan_cuti")
-      .update({status:val})
-      .eq("id",id);
-    el.className="status-"+val;
-  };
+window.updateSelesai=(id,v)=>supabase.from("pengajuan_cuti")
+.update({tgl_selesai:v||null}).eq("id",id);
 
-  window.hapus = async (id)=>{
-    if(!confirm("Hapus data permanen?")) return;
-    await supabase.from("pengajuan_cuti").delete().eq("id",id);
-    load();
-  };
+window.updateNomor=(id,v)=>supabase.from("pengajuan_cuti")
+.update({nomor_surat:v||null}).eq("id",id);
 
-  // === GENERATE DOKUMEN (LOGIKA BARU TANPA MENGUBAH YANG LAMA) ===
-  window.generateDokumen = async (row)=>{
-    const res = await fetch(GAS_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        token:GAS_TOKEN,
-        nama:row.nama,
-        nip:row.nip,
-        jabatan:row.jabatan,
-        jenis_cuti:row.jenis_cuti,
-        awal_cuti:row.tgl_mulai,
-        akhir_cuti:row.tgl_akhir,
-        lama_cuti:row.lama_cuti,
-        alamat:row.alamat,
-        sisa_cuti:row.sisa_cuti,
-        nomor_surat:row.nomor_surat,
-        ttd_url:row.signature_url
-      })
-    });
+window.updateStatus=(id,v)=>supabase.from("pengajuan_cuti")
+.update({status:v}).eq("id",id);
 
-    const json = await res.json();
-    if(!json.ok){
-      alert(json.error || "Gagal generate dokumen");
-      return;
-    }
-
-    await supabase.from("pengajuan_cuti")
-      .update({ doc_url: json.doc_url })
-      .eq("id",row.id);
-
-    load();
-  };
-
+window.hapus=async(id)=>{
+ if(confirm("Hapus?")){
+  await supabase.from("pengajuan_cuti").delete().eq("id",id);
   load();
-});
+ }
+};
+
+window.buat=async(row)=>{
+ const res=await fetch(GAS_URL,{
+  method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({
+    token:GAS_TOKEN,
+    nama:row.nama,
+    nip:row.nip,
+    jabatan:row.jabatan,
+    jenis_cuti:row.jenis_cuti,
+    awal_cuti:row.tgl_mulai,
+    lama_cuti:row.lama_cuti,
+    cuti_bersama:row.cuti_bersama||0,
+    alamat:row.alamat,
+    sisa_cuti:row.sisa_cuti,
+    nomor_surat:row.nomor_surat,
+    ttd_url:row.signature_url
+  })
+ });
+ const j=await res.json();
+ await supabase.from("pengajuan_cuti")
+ .update({doc_url:j.doc_url,tgl_selesai:j.tgl_selesai})
+ .eq("id",row.id);
+ load();
+};
+
+load();
 </script>
 </body>
 </html>
