@@ -8,16 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{
-  margin:0;
-  font-family:system-ui,Segoe UI;
-  background:#f1f5f9;
-}
-.container{
-  max-width:1800px;
-  margin:auto;
-  padding:20px;
-}
+body{margin:0;font-family:system-ui,Segoe UI;background:#f1f5f9}
+.container{max-width:1800px;margin:auto;padding:20px}
 h2{text-align:center;margin-bottom:14px}
 
 .search{
@@ -45,12 +37,7 @@ th,td{
 tbody tr:hover{background:#f8fafc}
 a{color:#2563eb;font-weight:600;text-decoration:none}
 
-select{
-  padding:6px 10px;
-  border-radius:8px;
-  font-weight:700;
-}
-
+select{padding:6px 10px;border-radius:8px;font-weight:700}
 button{
   padding:6px 12px;
   border-radius:8px;
@@ -72,7 +59,6 @@ button{
 <div class="container">
   <h2>🛠️ ADMIN CUTI</h2>
 
-  <!-- SEARCH -->
   <input id="search" class="search" placeholder="Cari nama pegawai…">
 
   <table>
@@ -169,9 +155,14 @@ document.addEventListener("DOMContentLoaded", async ()=>{
               alamat:d.alamat,
               tgl_mulai:fmt(d.tgl_mulai),
               lama:d.lama_cuti,
-              tgl_pengajuan:fmt(d.created_at)
+              tgl_pengajuan:fmt(d.created_at),
+              file1:d.file_1_url,
+              file2:d.file_2_url,
+              ttd:d.signature_url
             })})'>COPY</button>
-            <button class="hapus" onclick="hapus('${d.id}','${d.file_1_url}','${d.file_2_url}','${d.signature_url}')">
+
+            <button class="hapus"
+              onclick="hapus('${d.id}','${d.file_1_url}','${d.file_2_url}','${d.signature_url}')">
               HAPUS
             </button>
           </td>
@@ -180,27 +171,31 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     });
   }
 
-  // 🔍 AUTO COMPLETE SEARCH
+  // 🔍 SEARCH AUTO COMPLETE
   search.addEventListener("input",()=>{
     const v = search.value.toLowerCase();
     render(allData.filter(d=>(d.nama||"").toLowerCase().includes(v)));
   });
 
-  // 📋 COPY ROW
-  window.copyRow = async (obj)=>{
+  // 📋 COPY TERMASUK URL
+  window.copyRow = async (o)=>{
     const text = `
-Nama        : ${obj.nama}
-NIP         : ${obj.nip}
-No HP       : ${obj.no_hp}
-Jenis Cuti  : ${obj.jenis_cuti}
-Alamat      : ${obj.alamat}
-Tgl Mulai   : ${obj.tgl_mulai}
-Lama Cuti   : ${obj.lama} hari
-Pengajuan   : ${obj.tgl_pengajuan}
+Nama           : ${o.nama}
+NIP            : ${o.nip}
+No HP          : ${o.no_hp}
+Jenis Cuti     : ${o.jenis_cuti}
+Alamat         : ${o.alamat}
+Tanggal Mulai  : ${o.tgl_mulai}
+Lama Cuti      : ${o.lama} hari
+Tanggal Ajukan : ${o.tgl_pengajuan}
+
+File 1         : ${o.file1 ?? "-"}
+File 2         : ${o.file2 ?? "-"}
+Tanda Tangan   : ${o.ttd ?? "-"}
 `.trim();
 
     await navigator.clipboard.writeText(text);
-    alert("Data baris berhasil di-copy");
+    alert("Data + URL berhasil di-copy");
   };
 
   // UPDATE STATUS
