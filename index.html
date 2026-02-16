@@ -8,17 +8,60 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#f1f5f9}
-.container{max-width:1500px;margin:auto;padding:20px}
-h2{text-align:center;margin-bottom:16px}
-table{width:100%;border-collapse:collapse;background:#fff;box-shadow:0 10px 25px rgba(0,0,0,.08)}
+body{
+  margin:0;
+  font-family:system-ui,Segoe UI;
+  background:#f1f5f9;
+}
+.container{
+  max-width:1800px;
+  margin:auto;
+  padding:20px;
+}
+h2{text-align:center;margin-bottom:14px}
+
+.search{
+  width:420px;
+  padding:12px 16px;
+  font-size:15px;
+  border-radius:10px;
+  border:1px solid #cbd5e1;
+  margin-bottom:14px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+  box-shadow:0 10px 25px rgba(0,0,0,.08);
+}
 thead{background:#1e40af;color:#fff}
-th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;white-space:nowrap}
+th,td{
+  padding:10px 12px;
+  border-bottom:1px solid #e5e7eb;
+  font-size:14px;
+  white-space:nowrap;
+}
 tbody tr:hover{background:#f8fafc}
 a{color:#2563eb;font-weight:600;text-decoration:none}
-select{padding:6px 10px;border-radius:8px;font-weight:700}
-button{padding:6px 12px;border-radius:8px;border:none;font-weight:700;background:#dc2626;color:#fff;cursor:pointer}
-button:hover{opacity:.85}
+
+select{
+  padding:6px 10px;
+  border-radius:8px;
+  font-weight:700;
+}
+
+button{
+  padding:6px 12px;
+  border-radius:8px;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+}
+.copy{background:#0ea5e9;color:#fff}
+.hapus{background:#dc2626;color:#fff}
+.copy:hover,.hapus:hover{opacity:.85}
+
 .status-DIAJUKAN{background:#fde68a}
 .status-DISETUJUI{background:#bbf7d0}
 .status-DITOLAK{background:#fecaca}
@@ -29,6 +72,9 @@ button:hover{opacity:.85}
 <div class="container">
   <h2>🛠️ ADMIN CUTI</h2>
 
+  <!-- SEARCH -->
+  <input id="search" class="search" placeholder="Cari nama pegawai…">
+
   <table>
     <thead>
       <tr>
@@ -38,6 +84,7 @@ button:hover{opacity:.85}
         <th>No HP</th>
         <th>Jenis</th>
         <th>Alamat</th>
+        <th>Tgl Mulai</th>
         <th>Lama</th>
         <th>Tgl Pengajuan</th>
         <th>File 1</th>
@@ -54,15 +101,18 @@ button:hover{opacity:.85}
 <script>
 document.addEventListener("DOMContentLoaded", async ()=>{
 
-  // ✅ SUPABASE CLIENT (ANON KEY)
   const supabase = window.supabase.createClient(
     "https://ufiqibxdgwlysqhinqbz.supabase.co",
     "sb_publishable_EVSVWnsUriOPA_O3RnGTpg_Zmd4pyAL"
   );
 
+  const BUCKET = "cuti"; // sesuaikan
   const tbody = document.getElementById("tbody");
-  const fmt = v => v ? new Date(v).toLocaleString("id-ID") : "-";
-  const BUCKET = "cuti"; // ⚠️ sesuaikan nama bucket
+  const search = document.getElementById("search");
+
+  let allData = [];
+
+  const fmt = v => v ? new Date(v).toLocaleDateString("id-ID") : "-";
 
   function pathFromUrl(url){
     if(!url) return null;
@@ -81,6 +131,11 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       return;
     }
 
+    allData = data || [];
+    render(allData);
+  }
+
+  function render(data){
     tbody.innerHTML="";
     data.forEach((d,i)=>{
       tbody.insertAdjacentHTML("beforeend",`
@@ -91,6 +146,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
           <td>${d.no_hp ?? "-"}</td>
           <td>${d.jenis_cuti ?? "-"}</td>
           <td>${d.alamat ?? "-"}</td>
+          <td>${fmt(d.tgl_mulai)}</td>
           <td>${d.lama_cuti ?? "-"} hari</td>
           <td>${fmt(d.created_at)}</td>
           <td>${d.file_1_url ? `<a href="${d.file_1_url}" target="_blank">Lihat</a>`:"-"}</td>
@@ -105,7 +161,17 @@ document.addEventListener("DOMContentLoaded", async ()=>{
             </select>
           </td>
           <td>
-            <button onclick="hapus('${d.id}','${d.file_1_url}','${d.file_2_url}','${d.signature_url}')">
+            <button class="copy" onclick='copyRow(${JSON.stringify({
+              nama:d.nama,
+              nip:d.nip,
+              no_hp:d.no_hp,
+              jenis_cuti:d.jenis_cuti,
+              alamat:d.alamat,
+              tgl_mulai:fmt(d.tgl_mulai),
+              lama:d.lama_cuti,
+              tgl_pengajuan:fmt(d.created_at)
+            })})'>COPY</button>
+            <button class="hapus" onclick="hapus('${d.id}','${d.file_1_url}','${d.file_2_url}','${d.signature_url}')">
               HAPUS
             </button>
           </td>
@@ -114,7 +180,30 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     });
   }
 
-  // ✅ UPDATE STATUS (PERLU POLICY UPDATE)
+  // 🔍 AUTO COMPLETE SEARCH
+  search.addEventListener("input",()=>{
+    const v = search.value.toLowerCase();
+    render(allData.filter(d=>(d.nama||"").toLowerCase().includes(v)));
+  });
+
+  // 📋 COPY ROW
+  window.copyRow = async (obj)=>{
+    const text = `
+Nama        : ${obj.nama}
+NIP         : ${obj.nip}
+No HP       : ${obj.no_hp}
+Jenis Cuti  : ${obj.jenis_cuti}
+Alamat      : ${obj.alamat}
+Tgl Mulai   : ${obj.tgl_mulai}
+Lama Cuti   : ${obj.lama} hari
+Pengajuan   : ${obj.tgl_pengajuan}
+`.trim();
+
+    await navigator.clipboard.writeText(text);
+    alert("Data baris berhasil di-copy");
+  };
+
+  // UPDATE STATUS
   window.updateStatus = async (id,val,el)=>{
     const { error } = await supabase
       .from("pengajuan_cuti")
@@ -122,34 +211,23 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       .eq("id",id);
 
     if(error){
-      alert("Update gagal (cek RLS)");
+      alert("Update gagal");
       console.error(error);
       return;
     }
     el.className="status-"+val;
   };
 
-  // ✅ DELETE DB + STORAGE (PERLU POLICY DELETE + STORAGE)
+  // DELETE
   window.hapus = async (id,f1,f2,ttd)=>{
-    if(!confirm("Hapus DATA & FILE secara permanen?")) return;
+    if(!confirm("Hapus DATA & FILE permanen?")) return;
 
-    const files = [f1,f2,ttd].map(pathFromUrl).filter(Boolean);
-
+    const files=[f1,f2,ttd].map(pathFromUrl).filter(Boolean);
     if(files.length){
       await supabase.storage.from(BUCKET).remove(files);
     }
 
-    const { error } = await supabase
-      .from("pengajuan_cuti")
-      .delete()
-      .eq("id",id);
-
-    if(error){
-      alert("Gagal hapus data");
-      console.error(error);
-      return;
-    }
-
+    await supabase.from("pengajuan_cuti").delete().eq("id",id);
     load();
   };
 
