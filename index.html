@@ -8,29 +8,26 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-*{box-sizing:border-box}
 body{
   margin:0;
   font-family:system-ui,Segoe UI;
-  background:#f8fafc;
+  background:#f1f5f9;
 }
 .container{
-  max-width:1200px;
+  max-width:1400px;
   margin:auto;
   padding:20px;
 }
 h2{
   text-align:center;
-  color:#0f172a;
   margin-bottom:16px;
+  color:#0f172a;
 }
 table{
   width:100%;
   border-collapse:collapse;
   background:#fff;
-  box-shadow:0 10px 30px rgba(0,0,0,.08);
-  border-radius:12px;
-  overflow:hidden;
+  box-shadow:0 10px 25px rgba(0,0,0,.08);
 }
 thead{
   background:#1e40af;
@@ -38,42 +35,31 @@ thead{
 }
 th,td{
   padding:10px 12px;
-  font-size:14px;
+  font-size:13px;
   border-bottom:1px solid #e5e7eb;
-  text-align:left;
-}
-th{
   white-space:nowrap;
 }
-tbody tr:hover{
-  background:#f1f5f9;
+tbody tr:hover{background:#f8fafc}
+a{
+  color:#2563eb;
+  font-weight:600;
+  text-decoration:none;
 }
 select{
   padding:6px 10px;
   border-radius:8px;
-  border:1px solid #cbd5f5;
-  font-weight:600;
+  font-weight:700;
+  border:1px solid #cbd5e1;
 }
-.status-DIAJUKAN{color:#92400e;background:#fde68a}
-.status-DISETUJUI{color:#065f46;background:#bbf7d0}
-.status-DITOLAK{color:#991b1b;background:#fecaca}
-.url a{
-  color:#2563eb;
-  text-decoration:none;
-  font-weight:600;
-}
-.footer{
-  text-align:center;
-  margin-top:12px;
-  font-size:12px;
-  color:#64748b;
-}
+.status-DIAJUKAN{background:#fde68a}
+.status-DISETUJUI{background:#bbf7d0}
+.status-DITOLAK{background:#fecaca}
 </style>
 </head>
 
 <body>
 <div class="container">
-  <h2>🛠️ Admin Cuti</h2>
+  <h2>🛠️ ADMIN CUTI</h2>
 
   <table>
     <thead>
@@ -81,22 +67,23 @@ select{
         <th>No</th>
         <th>Nama</th>
         <th>NIP</th>
-        <th>Jenis Cuti</th>
-        <th>Tgl Pengajuan</th>
-        <th>Tgl Mulai</th>
+        <th>No HP</th>
+        <th>Jenis</th>
+        <th>Alamat</th>
         <th>Lama</th>
-        <th>URL Dokumen</th>
+        <th>Tgl Pengajuan</th>
+        <th>File 1</th>
+        <th>File 2</th>
+        <th>Tanda Tangan</th>
         <th>Status</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
   </table>
-
-  <div class="footer">Menampilkan seluruh data • Terbaru di atas</div>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", async ()=>{
 
   const supabase = window.supabase.createClient(
     "https://ufiqibxdgwlysqhinqbz.supabase.co",
@@ -104,8 +91,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   );
 
   const tbody = document.getElementById("tbody");
-
-  const fmt = v => v ? new Date(v).toLocaleDateString("id-ID") : "-";
+  const fmt = v => v ? new Date(v).toLocaleString("id-ID") : "-";
 
   async function load(){
     const { data, error } = await supabase
@@ -119,23 +105,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    tbody.innerHTML = "";
+    tbody.innerHTML="";
     data.forEach((d,i)=>{
       tbody.insertAdjacentHTML("beforeend",`
         <tr>
           <td>${i+1}</td>
           <td>${d.nama ?? "-"}</td>
           <td>${d.nip ?? "-"}</td>
+          <td>${d.no_hp ?? "-"}</td>
           <td>${d.jenis_cuti ?? "-"}</td>
-          <td>${fmt(d.created_at)}</td>
-          <td>${fmt(d.tgl_mulai)}</td>
+          <td>${d.alamat ?? "-"}</td>
           <td>${d.lama_cuti ?? "-"} hari</td>
-          <td class="url">
-            ${d.url_dokumen ? `<a href="${d.url_dokumen}" target="_blank">Lihat</a>` : "-"}
-          </td>
+          <td>${fmt(d.created_at)}</td>
+          <td>${d.file_1_url ? `<a href="${d.file_1_url}" target="_blank">Lihat</a>` : "-"}</td>
+          <td>${d.file_2_url ? `<a href="${d.file_2_url}" target="_blank">Lihat</a>` : "-"}</td>
+          <td>${d.signature_url ? `<a href="${d.signature_url}" target="_blank">Lihat</a>` : "-"}</td>
           <td>
-            <select 
-              class="status-${d.status}" 
+            <select class="status-${d.status}"
               onchange="updateStatus('${d.id}',this.value,this)">
               <option value="DIAJUKAN" ${d.status==="DIAJUKAN"?"selected":""}>DIAJUKAN</option>
               <option value="DISETUJUI" ${d.status==="DISETUJUI"?"selected":""}>DISETUJUI</option>
@@ -147,19 +133,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  window.updateStatus = async (id,value,el)=>{
+  window.updateStatus = async (id,val,el)=>{
     const { error } = await supabase
       .from("pengajuan_cuti")
-      .update({ status:value })
+      .update({ status:val })
       .eq("id",id);
 
     if(error){
-      alert("Gagal update status");
+      alert("Update status gagal");
       console.error(error);
       return;
     }
-
-    el.className = "status-" + value;
+    el.className = "status-"+val;
   };
 
   load();
